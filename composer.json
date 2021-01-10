@@ -5,7 +5,6 @@
     "base-x",
     "base58",
     "base62",
-    "base64",
     "crypto",
     "crytography",
     "bitcoin",
@@ -26,7 +25,9 @@
     }
   ],
   "minimum-stability": "dev",
-  "require": {},
+  "require": {
+    "php": ">=7"
+  },
   "autoload": {
     "psr-4": {
       "Lessmore92\\BaseX\\": "src/"
