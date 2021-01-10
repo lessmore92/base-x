@@ -1,0 +1,35 @@
+{
+  "name": "lessmore92/base-x",
+  "description": "Encode/decode any base",
+  "keywords": [
+    "base-x",
+    "base58",
+    "base62",
+    "base64",
+    "crypto",
+    "crytography",
+    "bitcoin",
+    "ethereum",
+    "ripple",
+    "base",
+    "encoding",
+    "encode",
+    "decoding",
+    "decode"
+  ],
+  "type": "library",
+  "license": "MIT",
+  "authors": [
+    {
+      "name": "Lessmore92",
+      "email": "bahramisoft@gmail.com"
+    }
+  ],
+  "minimum-stability": "dev",
+  "require": {},
+  "autoload": {
+    "psr-4": {
+      "Lessmore92\\BaseX\\": "src/"
+    }
+  }
+}
