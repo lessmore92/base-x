@@ -45,13 +45,18 @@ class BaseX
         $this->iFactor = log(256) / log($this->base);
     }
 
-    public function encode(Buffer $bytes)
+    public function encode($hexString)
     {
+        if (strlen($hexString) % 2 != 0)
+        {
+            throw new Exception('hex string must have even number of digits');
+        }
+
         $zeroes = 0;
         $length = 0;
         $pbegin = 0;
-        $pend   = $bytes->getSize();
-        $_bytes = $bytes->getDecimal();
+        $pend   = (strlen($hexString) / 2);
+        $_bytes = $this->hexStrToDecimalArray($hexString);
         while ($pbegin !== $pend && $_bytes[$pbegin] == 0)
         {
             $pbegin++;
@@ -125,9 +130,9 @@ class BaseX
         return $a;
     }
 
-    public function decode(string $string)
+    public function decode(string $hexString)
     {
-        $buffer = $this->decodeUnsafe($string);
+        $buffer = $this->decodeUnsafe($hexString);
         if ($buffer)
         {
             return $buffer;
@@ -139,7 +144,7 @@ class BaseX
     {
         if (strlen($source) == 0)
         {
-            return new Buffer();
+            return '';
         }
 
         $psz = 0;
@@ -196,8 +201,7 @@ class BaseX
             $it4++;
         }
 
-        $vch = Buffer::hex(str_repeat('00', $zeroes + ($size - $it4)));
-        $vch = $vch->getDecimal();
+        $vch = array_fill(0, $zeroes + ($size - $it4), 0);
         $j   = $zeroes;
 
         while ($it4 !== $size)
@@ -205,7 +209,7 @@ class BaseX
             $vch[$j++] = $b256[$it4++];
         }
 
-        return Buffer::hex($this->decimalArrayToHexStr($vch));
+        return $this->decimalArrayToHexStr($vch);
     }
 
     private function decimalArrayToHexStr(array $decimal)
@@ -213,5 +217,12 @@ class BaseX
         return join(array_map(function ($item) {
             return sprintf('%02X', $item);
         }, $decimal));
+    }
+
+    private function hexStrToDecimalArray(string $hex)
+    {
+        return array_map(function ($item) {
+            return hexdec($item);
+        }, str_split($hex, 2));
     }
 }
