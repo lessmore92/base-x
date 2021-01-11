@@ -11,6 +11,8 @@ ported from [js base-x](https://github.com/cryptocoinjs/base-x)
 In below sample used ripple alphabet to encode and decode ripple base58 address and seed
 
 ```
+require_once 'vendor/autoload.php';
+
 use Lessmore92\BaseX\BaseX;
 
 $rippleAlphabet = 'rpshnaf39wBUDNEGHJKLM4PQRST7VWXYZ2bcdeCg65jkm8oFqi1tuvAxyz';
