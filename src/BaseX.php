@@ -8,6 +8,7 @@
 namespace Lessmore92\BaseX;
 
 use Exception;
+use Lessmore92\Buffer\Buffer;
 
 class BaseX
 {
@@ -45,18 +46,13 @@ class BaseX
         $this->iFactor = log(256) / log($this->base);
     }
 
-    public function encode($hexString)
+    public function encode(Buffer $bytes): string
     {
-        if (strlen($hexString) % 2 != 0)
-        {
-            throw new Exception('hex string must have even number of digits');
-        }
-
         $zeroes = 0;
         $length = 0;
         $pbegin = 0;
-        $pend   = (strlen($hexString) / 2);
-        $_bytes = $this->hexStrToDecimalArray($hexString);
+        $pend   = $bytes->getSize();
+        $_bytes = $bytes->getDecimal();
         while ($pbegin !== $pend && $_bytes[$pbegin] == 0)
         {
             $pbegin++;
@@ -98,6 +94,89 @@ class BaseX
         return $str;
     }
 
+    public function decodeUnsafe(string $source): Buffer
+    {
+        if (strlen($source) == 0)
+        {
+            return new Buffer();
+        }
+
+        $psz = 0;
+        if ($source[$psz] === ' ')
+        {
+            return new Buffer();
+        }
+
+        $zeroes = 0;
+        $length = 0;
+
+
+        while ($source[$psz] === $this->leader)
+        {
+            $zeroes++;
+            $psz++;
+        }
+
+        $size = $this->unsignedRightShift(((strlen($source) - $psz) * $this->factor) + 1, 0); // log(58) / log(256), rounded up.
+        $b256 = array_fill(0, $size, 0);
+
+        while (isset($source[$psz]))
+        {
+            // Decode character
+            $carry = $this->baseMap[ord($source[$psz])];
+
+            // Invalid character
+            if ($carry === 255)
+            {
+                return new Buffer();
+            }
+            $i = 0;
+            for ($it3 = $size - 1; ($carry !== 0 || $i < $length) && ($it3 !== -1); $it3--, $i++)
+            {
+                $carry      += $this->unsignedRightShift($this->base * $b256[$it3], 0);
+                $b256[$it3] = $this->unsignedRightShift($carry % 256, 0);
+                $carry      = $this->unsignedRightShift($carry / 256, 0);
+            }
+            if ($carry !== 0)
+            {
+                throw new Exception('Non-zero carry');
+            }
+            $length = $i;
+            $psz++;
+        }
+
+        if (isset($source[$psz]) && $source[$psz] === ' ')
+        {
+            return new Buffer();
+        }
+        $it4 = $size - $length;
+        while ($it4 !== $size && $b256[$it4] === 0)
+        {
+            $it4++;
+        }
+
+        $vch = Buffer::hex(str_repeat('00', $zeroes + ($size - $it4)));
+        $vch = $vch->getDecimal();
+        $j   = $zeroes;
+
+        while ($it4 !== $size)
+        {
+            $vch[$j++] = $b256[$it4++];
+        }
+
+        return Buffer::hex($this->decimalArrayToHexStr($vch));
+    }
+
+    public function decode(string $string): Buffer
+    {
+        $buffer = $this->decodeUnsafe($string);
+        if ($buffer->getSize())
+        {
+            return $buffer;
+        }
+        throw new Exception(sprintf("Non-base%s character", $this->base));
+    }
+
     private function unsignedRightShift($a, $b)
     {
         if ($b >= 32 || $b < -32)
@@ -130,99 +209,10 @@ class BaseX
         return $a;
     }
 
-    public function decode(string $hexString)
-    {
-        $buffer = $this->decodeUnsafe($hexString);
-        if ($buffer)
-        {
-            return $buffer;
-        }
-        throw new Exception(sprintf("Non-base%s character", $this->base));
-    }
-
-    public function decodeUnsafe(string $source)
-    {
-        if (strlen($source) == 0)
-        {
-            return '';
-        }
-
-        $psz = 0;
-        if ($source[$psz] === ' ')
-        {
-            return;
-        }
-
-        $zeroes = 0;
-        $length = 0;
-
-
-        while ($source[$psz] === $this->leader)
-        {
-            $zeroes++;
-            $psz++;
-        }
-
-        $size = $this->unsignedRightShift(((strlen($source) - $psz) * $this->factor) + 1, 0); // log(58) / log(256), rounded up.
-        $b256 = array_fill(0, $size, 0);
-
-        while (isset($source[$psz]))
-        {
-            // Decode character
-            $carry = $this->baseMap[ord($source[$psz])];
-
-            // Invalid character
-            if ($carry === 255)
-            {
-                return;
-            }
-            $i = 0;
-            for ($it3 = $size - 1; ($carry !== 0 || $i < $length) && ($it3 !== -1); $it3--, $i++)
-            {
-                $carry      += $this->unsignedRightShift($this->base * $b256[$it3], 0);
-                $b256[$it3] = $this->unsignedRightShift($carry % 256, 0);
-                $carry      = $this->unsignedRightShift($carry / 256, 0);
-            }
-            if ($carry !== 0)
-            {
-                throw new Exception('Non-zero carry');
-            }
-            $length = $i;
-            $psz++;
-        }
-
-        if (isset($source[$psz]) && $source[$psz] === ' ')
-        {
-            return;
-        }
-        $it4 = $size - $length;
-        while ($it4 !== $size && $b256[$it4] === 0)
-        {
-            $it4++;
-        }
-
-        $vch = array_fill(0, $zeroes + ($size - $it4), 0);
-        $j   = $zeroes;
-
-        while ($it4 !== $size)
-        {
-            $vch[$j++] = $b256[$it4++];
-        }
-
-        return $this->decimalArrayToHexStr($vch);
-    }
-
     private function decimalArrayToHexStr(array $decimal)
     {
         return join(array_map(function ($item) {
             return sprintf('%02X', $item);
         }, $decimal));
-    }
-
-    private function hexStrToDecimalArray(string $hex)
-    {
-        return array_map(function ($item) {
-            return hexdec($item);
-        }, str_split($hex, 2));
     }
 }

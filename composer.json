@@ -26,7 +26,8 @@
   ],
   "minimum-stability": "dev",
   "require": {
-    "php": ">=7"
+    "php": ">=7",
+    "lessmore92/buffer": "v1.0.0"
   },
   "autoload": {
     "psr-4": {
