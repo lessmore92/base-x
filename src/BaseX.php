@@ -1,4 +1,5 @@
 <?php
+
 /**
  * User: Lessmore92
  * Date: 1/7/2021
@@ -12,18 +13,61 @@ use Lessmore92\Buffer\Buffer;
 
 class BaseX
 {
+    /**
+     * alphabet
+     *
+     * @var array<int, string>
+     */
     private $alphabet;
+
+
+    /**
+     * baseMap
+     *
+     * @var array
+     */
     private $baseMap;
+
+
+    /**
+     * base
+     *
+     * @var int
+     */
     private $base;
+
+
+    /**
+     * leader
+     *
+     * @var mixed
+     */
     private $leader;
+
+    /**
+     * factor
+     *
+     * @var int|float
+     */
     private $factor;
+
+    /**
+     * iFactor
+     *
+     * @var int|float
+     */
     private $iFactor;
 
+    /**
+     * __construct
+     *
+     * @param  string $alphabet
+     * @return void
+     */
     public function __construct($alphabet)
     {
         $alphabet = str_split($alphabet);
-        if (sizeof($alphabet) >= 255)
-        {
+        if (sizeof($alphabet) >= 255) {
             throw new Exception('Alphabet too long');
         }
         $this->alphabet = $alphabet;
@@ -31,10 +75,8 @@ class BaseX
         $this->baseMap = array_fill(0, 254, 255);
 
 
-        foreach ($alphabet as $i => $char)
-        {
-            if ($this->baseMap[ord($char)] !== 255)
-            {
+        foreach ($alphabet as $i => $char) {
+            if ($this->baseMap[ord($char)] !== 255) {
                 throw new Exception($char . ' is ambiguous');
             }
             $this->baseMap[ord($char)] = $i;
@@ -53,8 +95,7 @@ class BaseX
         $pbegin = 0;
         $pend   = $bytes->getSize();
         $_bytes = $bytes->getDecimal();
-        while ($pbegin !== $pend && $_bytes[$pbegin] == 0)
-        {
+        while ($pbegin !== $pend && $_bytes[$pbegin] == 0) {
             $pbegin++;
             $zeroes++;
         }
@@ -62,18 +103,15 @@ class BaseX
         $size = $this->unsignedRightShift(($pend - $pbegin) * $this->iFactor + 1, 0);
         $b58  = array_fill(0, $size, 0);
 
-        while ($pbegin !== $pend)
-        {
+        while ($pbegin !== $pend) {
             $carry = $_bytes[$pbegin];
             $i     = 0;
-            for ($it1 = $size - 1; ($carry !== 0 || $i < $length) && ($it1 !== -1); $it1--, $i++)
-            {
+            for ($it1 = $size - 1; ($carry !== 0 || $i < $length) && ($it1 !== -1); $it1--, $i++) {
                 $carry     += $this->unsignedRightShift(256 * $b58[$it1], 0);
                 $b58[$it1] = $this->unsignedRightShift($carry % $this->base, 0);
                 $carry     = $this->unsignedRightShift($carry / $this->base, 0);
             }
-            if ($carry !== 0)
-            {
+            if ($carry !== 0) {
                 throw new Exception('Non-zero carry');
             }
             $length = $i;
@@ -81,14 +119,12 @@ class BaseX
         }
 
         $it2 = $size - $length;
-        while ($it2 !== $size && $b58[$it2] === 0)
-        {
+        while ($it2 !== $size && $b58[$it2] === 0) {
             $it2++;
         }
 
-        $str = str_repeat($this->leader, $zeroes);
-        for (; $it2 < $size; ++$it2)
-        {
+        $str = str_repeat(strval($this->leader), $zeroes);
+        for (; $it2 < $size; ++$it2) {
             $str .= $this->alphabet[$b58[$it2]];
         }
         return $str;
@@ -96,14 +132,12 @@ class BaseX
 
     public function decodeUnsafe(string $source): Buffer
     {
-        if (strlen($source) == 0)
-        {
+        if (strlen($source) == 0) {
             return new Buffer();
         }
 
         $psz = 0;
-        if ($source[$psz] === ' ')
-        {
+        if ($source[$psz] === ' ') {
             return new Buffer();
         }
 
@@ -111,8 +145,7 @@ class BaseX
         $length = 0;
 
 
-        while ($source[$psz] === $this->leader)
-        {
+        while ($source[$psz] === $this->leader) {
             $zeroes++;
             $psz++;
         }
@@ -120,38 +153,34 @@ class BaseX
         $size = $this->unsignedRightShift(((strlen($source) - $psz) * $this->factor) + 1, 0); // log(58) / log(256), rounded up.
         $b256 = array_fill(0, $size, 0);
 
-        while (isset($source[$psz]))
-        {
+        while (isset($source[$psz])) {
             // Decode character
             $carry = $this->baseMap[ord($source[$psz])];
 
             // Invalid character
-            if ($carry === 255)
-            {
+            if ($carry === 255) {
                 return new Buffer();
             }
             $i = 0;
-            for ($it3 = $size - 1; ($carry !== 0 || $i < $length) && ($it3 !== -1); $it3--, $i++)
-            {
+            for ($it3 = $size - 1; ($carry !== 0 || $i < $length) && ($it3 !== -1); $it3--, $i++) {
                 $carry      += $this->unsignedRightShift($this->base * $b256[$it3], 0);
                 $b256[$it3] = $this->unsignedRightShift($carry % 256, 0);
                 $carry      = $this->unsignedRightShift($carry / 256, 0);
             }
-            if ($carry !== 0)
-            {
+            if ($carry !== 0) {
                 throw new Exception('Non-zero carry');
             }
             $length = $i;
             $psz++;
         }
 
-        if (isset($source[$psz]) && $source[$psz] === ' ')
-        {
-            return new Buffer();
+        if (isset($source[$psz])) {
+            if ($source[$psz] === ' ') {
+                return new Buffer();
+            }
         }
         $it4 = $size - $length;
-        while ($it4 !== $size && $b256[$it4] === 0)
-        {
+        while ($it4 !== $size && $b256[$it4] === 0) {
             $it4++;
         }
 
@@ -159,8 +188,7 @@ class BaseX
         $vch = $vch->getDecimal();
         $j   = $zeroes;
 
-        while ($it4 !== $size)
-        {
+        while ($it4 !== $size) {
             $vch[$j++] = $b256[$it4++];
         }
 
@@ -170,45 +198,52 @@ class BaseX
     public function decode(string $string): Buffer
     {
         $buffer = $this->decodeUnsafe($string);
-        if ($buffer->getSize())
-        {
+        if ($buffer->getSize()) {
             return $buffer;
         }
         throw new Exception(sprintf("Non-base%s character", $this->base));
     }
 
+    /**
+     * unsignedRightShift
+     *
+     * @param  mixed $a
+     * @param  mixed $b
+     * @return int
+     */
     private function unsignedRightShift($a, $b)
     {
-        if ($b >= 32 || $b < -32)
-        {
-            $m = (int)($b / 32);
+        $a = intval($a);
+        if ($b >= 32 || $b < -32) {
+            $m = intval($b / 32);
             $b = $b - ($m * 32);
         }
 
-        if ($b < 0)
-        {
+        if ($b < 0) {
             $b = 32 + $b;
         }
 
-        if ($b == 0)
-        {
+        if ($b == 0) {
             return (($a >> 1) & 0x7fffffff) * 2 + (($a >> $b) & 1);
         }
 
-        if ($a < 0)
-        {
+        if ($a < 0) {
             $a = ($a >> 1);
             $a &= 0x7fffffff;
             $a |= 0x40000000;
             $a = ($a >> ($b - 1));
-        }
-        else
-        {
+        } else {
             $a = ($a >> $b);
         }
         return $a;
     }
 
+    /**
+     * decimalArrayToHexStr
+     *
+     * @param  array $decimal
+     * @return string
+     */
     private function decimalArrayToHexStr(array $decimal)
     {
         return join(array_map(function ($item) {
